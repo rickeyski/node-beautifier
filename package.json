@@ -3,9 +3,9 @@
     "description": "The JavaScript, html, and css beautifier",
     "homepage": "https://github.com/einars/js-beautify",
     "keywords": [
-        "lint"
+        "beautify"
     ],
-    "version": "0.1.1",
+    "version": "0.1.2",
     "author" : "Rickey Visinski",
     "contributors": [
         "Einar Lielmanis <einar@jsbeautifier.org>",

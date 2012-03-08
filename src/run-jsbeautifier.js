@@ -7,13 +7,13 @@ var parsed = nopt();
 function die(why) {
     'use strict';
     console.warn(why);
-    console.warn("Usage: " + process.argv[1] + " <scriptfile>{js,css,html}...");
+    console.warn("Usage: " + process.argv[1] + " file.{js,css,html} ...");
     process.exit(1);
 }
 
-function lintFile(file) {
+function beautifyFile(file) {
     'use strict';
-    var ft = file.split('.'), lint;
+    var ft = file.split('.'), beautify;
 
     fs.readFile(file, function (err, data) {
         if (err) {
@@ -29,18 +29,18 @@ function lintFile(file) {
 
         switch (ft[ft.length -1]) {
             case "js": 
-                lint = beautify.js_beautify;
+                beautify = beautify.js_beautify;
                 break;
             case "css":
-                lint = beautify.css_beautify;
+                beautify = beautify.css_beautify;
                 break;
             case "html":
-                lint = beautify.html_beautify;
+                beautify = beautify.html_beautify;
                 break;
             default:
                 die("invalid file format");
         }
-        console.log(lint(data));
+        console.log(beautify(data));
     });
 }
 
@@ -48,4 +48,4 @@ if (!parsed.argv.remain.length) {
     die("No files specified.");
 }
 
-parsed.argv.remain.forEach(lintFile);
+parsed.argv.remain.forEach(beautifyFile);
