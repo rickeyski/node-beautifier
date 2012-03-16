@@ -29,18 +29,18 @@ function beautifyFile(file) {
 
         switch (ft[ft.length -1]) {
             case "js": 
-                beautify = beautify.js_beautify;
+                beauty = beautify.js_beautify;
                 break;
             case "css":
-                beautify = beautify.css_beautify;
+                beauty = beautify.css_beautify;
                 break;
             case "html":
-                beautify = beautify.html_beautify;
+                beauty = beautify.html_beautify;
                 break;
             default:
                 die("invalid file format");
         }
-        console.log(beautify(data));
+        console.log(beauty(data));
     });
 }
 
