@@ -6,7 +6,7 @@
 #   DESCRIPTION:  Compile source file into the actual node module
 # 
 #        AUTHOR: Rickey Visinski 
-#      REVISION:  0.0.1
+#      REVISION:  0.0.2
 #===============================================================================
 
 set -o nounset                              # Treat unset variables as an error
@@ -14,7 +14,7 @@ set -o nounset                              # Treat unset variables as an error
 BIN=bin/beautifier.js
 LIB=lib/beautify.js
 
-echo '#!/usr/bin/node' > $BIN
+echo '#!/usr/bin/env node' > $BIN
 
 # I use the closure compiler, this is the quick and dirty check if you build from source
 if [[ $(which closure) ]] ; then
