@@ -41,7 +41,9 @@
                 }
             This mode may break your scripts - e.g "return { a: 1 }" will be broken into two lines, so beware.
 
-    space_before_conditional: should the space before conditional statement be added, "if(true)" vs "if (true)"
+    space_before_conditional (default true) - should the space before conditional statement be added, "if(true)" vs "if (true)",
+
+    unescape_strings (default false) - should printable characters in strings encoded in \xNN notation be unescaped, "example" vs "\x65\x78\x61\x6d\x70\x6c\x65"
 
     e.g
 
@@ -87,6 +89,7 @@ function js_beautify(js_source_text, options) {
     var opt_keep_array_indentation = typeof options.keep_array_indentation === 'undefined' ? false : options.keep_array_indentation;
     var opt_space_before_conditional = typeof options.space_before_conditional === 'undefined' ? true : options.space_before_conditional;
     var opt_indent_case = typeof options.indent_case === 'undefined' ? false : options.indent_case;
+    var opt_unescape_strings = typeof options.unescape_strings === 'undefined' ? false : options.unescape_strings;
 
     just_added_newline = false;
 
@@ -105,6 +108,26 @@ function js_beautify(js_source_text, options) {
 
     function trim(s) {
         return s.replace(/^\s\s*|\s\s*$/, '');
+    }
+
+    // we could use just string.split, but
+    // IE doesn't like returning empty strings
+    function split_newlines(s)
+    {
+        //return s.split(/\x0d\x0a|\x0a/);
+
+        s = s.replace(/\x0d/g, '');
+        var out = [],
+            idx = s.indexOf("\n");
+        while (idx != -1) {
+            out.push(s.substring(0, idx));
+            s = s.substring(idx + 1);
+            idx = s.indexOf("\n");
+        }
+        if (s.length) {
+            out.push(s);
+        }
+        return out;
     }
 
     function force_newline()
@@ -154,10 +177,8 @@ function js_beautify(js_source_text, options) {
     function print_single_space() {
 
         if (last_type === 'TK_COMMENT') {
-            // no you will not print just a space after a comment
-            return print_newline(true);
+            return print_newline();
         }
-
         if (flags.eat_next_space) {
             flags.eat_next_space = false;
             return;
@@ -230,7 +251,8 @@ function js_beautify(js_source_text, options) {
 
     function all_lines_start_with(lines, c) {
         for (var i = 0; i < lines.length; i++) {
-            if (trim(lines[i])[0] != c) {
+            var line = trim(lines[i]);
+            if (line.charAt(0) !== c) {
                 return false;
             }
         }
@@ -424,10 +446,11 @@ function js_beautify(js_source_text, options) {
             if (input.charAt(parser_pos) === '*') {
                 parser_pos += 1;
                 if (parser_pos < input_length) {
-                    while (! (input.charAt(parser_pos) === '*' && input.charAt(parser_pos + 1) && input.charAt(parser_pos + 1) === '/') && parser_pos < input_length) {
+                    while (parser_pos < input_length &&
+                        ! (input.charAt(parser_pos) === '*' && input.charAt(parser_pos + 1) && input.charAt(parser_pos + 1) === '/')) {
                         c = input.charAt(parser_pos);
                         comment += c;
-                        if (c === '\x0d' || c === '\x0a') {
+                        if (c === "\n" || c === "\r") {
                             inline_comment = false;
                         }
                         parser_pos += 1;
@@ -453,7 +476,6 @@ function js_beautify(js_source_text, options) {
                         break;
                     }
                 }
-                parser_pos += 1;
                 if (wanted_newline) {
                     print_newline();
                 }
@@ -470,6 +492,8 @@ function js_beautify(js_source_text, options) {
                 (last_type === 'TK_COMMENT' || last_type === 'TK_START_EXPR' || last_type === 'TK_START_BLOCK' || last_type === 'TK_END_BLOCK' || last_type === 'TK_OPERATOR' || last_type === 'TK_EQUALS' || last_type === 'TK_EOF' || last_type === 'TK_SEMICOLON')))) { // regexp
             var sep = c;
             var esc = false;
+            var esc1 = 0;
+            var esc2 = 0;
             var resulting_string = c;
 
             if (parser_pos < input_length) {
@@ -504,10 +528,29 @@ function js_beautify(js_source_text, options) {
                     //
                     while (esc || input.charAt(parser_pos) !== sep) {
                         resulting_string += input.charAt(parser_pos);
-                        if (!esc) {
+                        if (esc1 && esc1 >= esc2) {
+                            esc1 = parseInt(resulting_string.substr(-esc2), 16);
+                            if (esc1 && esc1 >= 0x20 && esc1 <= 0x7e) {
+                                esc1 = String.fromCharCode(esc1);
+                                resulting_string = resulting_string.substr(0, resulting_string.length - esc2 - 2) + (((esc1 === sep) || (esc1 === '\\')) ? '\\' : '') + esc1;
+                            }
+                            esc1 = 0;
+                        }
+                        if (esc1) {
+                            esc1++;
+                        } else if (!esc) {
                             esc = input.charAt(parser_pos) === '\\';
                         } else {
                             esc = false;
+                            if (opt_unescape_strings) {
+                                if (input.charAt(parser_pos) === 'x') {
+                                    esc1++;
+                                    esc2 = 2;
+                                } else if (input.charAt(parser_pos) === 'u') {
+                                    esc1++;
+                                    esc2 = 4;
+                                }
+                            }
                         }
                         parser_pos += 1;
                         if (parser_pos >= input_length) {
@@ -580,8 +623,8 @@ function js_beautify(js_source_text, options) {
         if (c === '<' && input.substring(parser_pos - 1, parser_pos + 3) === '<!--') {
             parser_pos += 3;
             c = '<!--';
-            while (input[parser_pos] != '\n' && parser_pos < input_length) {
-                c += input[parser_pos];
+            while (input.charAt(parser_pos) != '\n' && parser_pos < input_length) {
+                c += input.charAt(parser_pos);
                 parser_pos++;
             }
             flags.in_html_comment = true;
@@ -623,8 +666,8 @@ function js_beautify(js_source_text, options) {
         opt_indent_size -= 1;
     }
 
-    while (js_source_text && (js_source_text[0] === ' ' || js_source_text[0] === '\t')) {
-        preindent_string += js_source_text[0];
+    while (js_source_text && (js_source_text.charAt(0) === ' ' || js_source_text.charAt(0) === '\t')) {
+        preindent_string += js_source_text.charAt(0);
         js_source_text = js_source_text.substring(1);
     }
     input = js_source_text;
@@ -883,6 +926,12 @@ function js_beautify(js_source_text, options) {
                         print_newline(false);
                     }
                 }
+                if (last_type == 'TK_WORD' || last_text === 'get' || last_text === 'set' || last_text === 'new') {
+                    print_single_space();
+                }
+                print_token();
+                last_word = token_text;
+                break;
             }
 
             if (token_text === 'case' || (token_text === 'default' && flags.in_case_statement)) {
@@ -945,9 +994,6 @@ function js_beautify(js_source_text, options) {
                     prefix = 'NEWLINE';
                 }
 
-                if (token_text === 'function' && (last_text === 'get' || last_text === 'set')) {
-                    prefix = 'SPACE';
-                }
             }
 
             if (flags.if_line && last_type === 'TK_END_EXPR') {
@@ -961,12 +1007,7 @@ function js_beautify(js_source_text, options) {
                     print_single_space();
                 }
             } else if (prefix === 'NEWLINE') {
-                if ((last_type === 'TK_START_EXPR' || last_text === '=' || last_text === ',') && token_text === 'function') {
-                    // no need to force newline on 'function': (function
-                    // DONOTHING
-                } else if (token_text === 'function' && last_text == 'new') {
-                    print_single_space();
-                } else if (is_special_word(last_text)) {
+                if (is_special_word(last_text)) {
                     // no newline between 'return nnn'
                     print_single_space();
                 } else if (last_type !== 'TK_END_EXPR') {
@@ -1024,7 +1065,7 @@ function js_beautify(js_source_text, options) {
 
             if (last_type === 'TK_END_EXPR' && in_array(flags.previous_mode, ['(COND-EXPRESSION)', '(FOR-EXPRESSION)'])) {
                 print_single_space();
-            } else if (last_type == 'TK_STRING' || last_type === 'TK_START_BLOCK' || last_type === 'TK_END_BLOCK' || last_type === 'TK_SEMICOLON') {
+            } else if (last_type === 'TK_COMMENT' || last_type == 'TK_STRING' || last_type === 'TK_START_BLOCK' || last_type === 'TK_END_BLOCK' || last_type === 'TK_SEMICOLON') {
                 print_newline();
             } else if (last_type === 'TK_WORD') {
                 print_single_space();
@@ -1072,6 +1113,12 @@ function js_beautify(js_source_text, options) {
             if (is_special_word(last_text)) {
                 // "return" had a special handling in TK_WORD. Now we need to return the favor
                 print_single_space();
+                print_token();
+                break;
+            }
+
+            // hack for actionscript's import .*;
+            if (token_text == '*' && last_type == 'TK_UNKNOWN' && ! last_last_text.match(/^\d+$/)) {
                 print_token();
                 break;
             }
@@ -1146,7 +1193,9 @@ function js_beautify(js_source_text, options) {
 
             } else if (token_text === ':') {
                 if (flags.ternary_depth == 0) {
-                    flags.mode = 'OBJECT';
+                    if (flags.mode == 'BLOCK') {
+                        flags.mode = 'OBJECT';
+                    }
                     space_before = false;
                 } else {
                     flags.ternary_depth -= 1;
@@ -1168,7 +1217,7 @@ function js_beautify(js_source_text, options) {
 
         case 'TK_BLOCK_COMMENT':
 
-            var lines = token_text.split(/\x0a|\x0d\x0a/);
+            var lines = split_newlines(token_text);
 
             if (all_lines_start_with(lines.slice(1), '*')) {
                 // javadoc: reformat and reindent
@@ -1198,7 +1247,7 @@ function js_beautify(js_source_text, options) {
 
                 for (i = 0; i < lines.length; i++) {
                     output.push(lines[i]);
-                    output.push('\n');
+                    output.push("\n");
                 }
 
             }
@@ -1218,15 +1267,17 @@ function js_beautify(js_source_text, options) {
 
         case 'TK_COMMENT':
 
-            // print_newline();
-            if (wanted_newline) {
-                print_newline();
-            } else {
-                print_single_space();
+            if (last_text == ',' && ! wanted_newline) {
+                trim_output(true);
+            }
+            if (last_type != 'TK_COMMENT') {
+                if (wanted_newline) {
+                    print_newline();
+                } else {
+                    print_single_space();
+                }
             }
             print_token();
-            if(look_up('\n') != '\n')
-                force_newline();
             break;
 
         case 'TK_UNKNOWN':
@@ -1242,7 +1293,7 @@ function js_beautify(js_source_text, options) {
         last_text = token_text;
     }
 
-    var sweet_code = preindent_string + output.join('').replace(/[\n ]+$/, '');
+    var sweet_code = preindent_string + output.join('').replace(/[\r\n ]+$/, '');
     return sweet_code;
 
 }
