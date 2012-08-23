@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/rickeyski/node-beautifier.png)](http://travis-ci.org/rickeyski/node-beautifier)
 # node-beautifier
 
 This is a nodejs module built upon Einars js-beautifier.
