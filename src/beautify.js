@@ -82,15 +82,15 @@ function js_beautify(js_source_text, options) {
     opt_brace_style = options.brace_style ? options.brace_style : (opt_brace_style ? opt_brace_style : "collapse");
 
 
-    var opt_indent_size = options.indent_size ? options.indent_size : 4;
-    var opt_indent_char = options.indent_char ? options.indent_char : ' ';
-    var opt_preserve_newlines = typeof options.preserve_newlines === 'undefined' ? true : options.preserve_newlines;
-    var opt_max_preserve_newlines = typeof options.max_preserve_newlines === 'undefined' ? false : options.max_preserve_newlines;
-    var opt_jslint_happy = options.jslint_happy === 'undefined' ? false : options.jslint_happy;
-    var opt_keep_array_indentation = typeof options.keep_array_indentation === 'undefined' ? false : options.keep_array_indentation;
-    var opt_space_before_conditional = typeof options.space_before_conditional === 'undefined' ? true : options.space_before_conditional;
-    var opt_indent_case = typeof options.indent_case === 'undefined' ? false : options.indent_case;
-    var opt_unescape_strings = typeof options.unescape_strings === 'undefined' ? false : options.unescape_strings;
+    var opt_indent_size = options.indent_size ? options.indent_size : 4,
+        opt_indent_char = options.indent_char ? options.indent_char : ' ',
+        opt_preserve_newlines = typeof options.preserve_newlines === 'undefined' ? true : options.preserve_newlines,
+        opt_break_chained_methods = typeof options.break_chained_methods === 'undefined' ? false : options.break_chained_methods,
+        opt_max_preserve_newlines = typeof options.max_preserve_newlines === 'undefined' ? false : options.max_preserve_newlines,
+        opt_jslint_happy = options.jslint_happy === 'undefined' ? true : options.jslint_happy,
+        opt_keep_array_indentation = typeof options.keep_array_indentation === 'undefined' ? false : options.keep_array_indentation,
+        opt_space_before_conditional = typeof options.space_before_conditional === 'undefined' ? true : options.space_before_conditional,
+        opt_unescape_strings = typeof options.unescape_strings === 'undefined' ? false : options.unescape_strings;
 
     just_added_newline = false;
 
@@ -171,9 +171,6 @@ function js_beautify(js_source_text, options) {
         if (flags.var_line && flags.var_line_reindented) {
             output.push(indent_string); // skip space-stuffing, if indenting with a tab
         }
-        if (flags.case_body) {
-            output.push(indent_string);
-        }
     }
 
 
@@ -232,7 +229,7 @@ function js_beautify(js_source_text, options) {
             case_body: false, // the indented case-action block
             eat_next_space: false,
             indentation_baseline: -1,
-            indentation_level: (flags ? flags.indentation_level + (flags.case_body ? 1 : 0) + ((flags.var_line && flags.var_line_reindented) ? 1 : 0) : 0),
+            indentation_level: (flags ? flags.indentation_level + ((flags.var_line && flags.var_line_reindented) ? 1 : 0) : 0),
             ternary_depth: 0
         };
     }
@@ -808,8 +805,10 @@ function js_beautify(js_source_text, options) {
             if (is_special_word(last_text)) {
                 print_single_space();
             } else if (last_text === ')') {
-                flags.chain_extra_indentation = 1;
-                print_newline(true /* ignore_repeated */, false /* reset_statement_flags */);
+                if (opt_break_chained_methods || wanted_newline) {
+                    flags.chain_extra_indentation = 1;
+                    print_newline(true /* ignore_repeated */, false /* reset_statement_flags */);
+                }
             }
 
             print_token();
@@ -976,23 +975,16 @@ function js_beautify(js_source_text, options) {
             }
 
             if (token_text === 'case' || (token_text === 'default' && flags.in_case_statement)) {
-                if (last_text === ':' || flags.case_body) {
+                print_newline();
+                if (flags.case_body) {
                     // switch cases following one another
+                    flags.indentation_level--;
+                    flags.case_body = false;
                     remove_indent();
-                } else {
-                    // case statement starts in the same line where switch
-                    if (!opt_indent_case) {
-                        flags.indentation_level--;
-                    }
-                    print_newline();
-                    if (!opt_indent_case) {
-                        flags.indentation_level++;
-                    }
                 }
                 print_token();
                 flags.in_case = true;
                 flags.in_case_statement = true;
-                flags.case_body = false;
                 break;
             }
 
@@ -1187,10 +1179,9 @@ function js_beautify(js_source_text, options) {
             }
 
             if (token_text === ':' && flags.in_case) {
-                if (opt_indent_case) {
-                    flags.case_body = true;
-                }
-                print_token(); // colon really asks for separate treatment
+                flags.case_body = true;
+                indent();
+                print_token();
                 print_newline();
                 flags.in_case = false;
                 break;
