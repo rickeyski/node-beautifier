@@ -529,3 +529,6 @@ function style_html(html_source, options) {
   }
   return multi_parser.output.join('');
 }
+
+if (typeof exports !== "undefined")
+    exports.html_beautify = style_html;
