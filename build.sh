@@ -20,9 +20,12 @@ echo '#!/usr/bin/env node' > $BIN
 if [[ $(which closure) ]] ; then
     closure --compilation_level SIMPLE_OPTIMIZATIONS --js src/beautify*.js --js_output_file $LIB || exit 1
     closure --compilation_level SIMPLE_OPTIMIZATIONS --js src/run-jsbeautifier.js >> $BIN || exit 1
+elif [[ $(which closure-compiler) ]] ; then
+    closure-compiler --compilation_level SIMPLE_OPTIMIZATIONS --js src/beautify*.js --js_output_file $LIB || exit 1
+    closure-compiler --compilation_level SIMPLE_OPTIMIZATIONS --js src/run-jsbeautifier.js >> $BIN || exit 1
 else
     cat src/beautify*.js > $LIB
-    cat src/run-jsbeautify.js >> $BIN
+    cat src/run-jsbeautifier.js >> $BIN
 fi
 
 chmod +x $BIN
