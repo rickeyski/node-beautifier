@@ -35,7 +35,7 @@ function beautifyFile(file) {
                     beauty = beautify.css_beautify;
                     break;
                 case "html":
-                    beauty = beautify.html_beautify;
+                    beauty = beautify.style_html;
                     break;
                 default:
                     die("invalid file format");
