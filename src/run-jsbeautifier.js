@@ -14,7 +14,7 @@ function die(why) {
 
 function beautifyFile(file) {
     'use strict';
-    var ft = file.split('.'), beautify;
+    var ft = file.split('.'), beauty;
 
     fs.readFile(file, function (err, data) {
         if (err) {
