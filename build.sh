@@ -25,4 +25,6 @@ else
     cat src/run-jsbeautify.js >> $BIN
 fi
 
+sed -i -e 's/(void 0)/beautify/g' $BIN
+
 chmod +x $BIN
