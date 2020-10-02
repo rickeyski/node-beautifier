@@ -1,4 +1,4 @@
-# node-beautifier
+# node-Beautifier
 
 This is a nodejs module built upon Einars js-beautifier.
 It also incorporates the css and html beautifier based upon file extension.
